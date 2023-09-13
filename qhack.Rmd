@@ -1,0 +1,97 @@
+---
+title: "Q Hacking -- Stats for Large Data Programming Challenge"
+author: "Callithrix Jacchus"
+date: "2023-09-13"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+In this document, we will outline our proposed solution for the Q Hacking Challenge as part of the Large Data Programming session. We will discuss the code and methods employed, concluding with a report of the results.
+
+## Set Up Packages
+
+```{r}
+install.packages("ggplot2", repos = "http://cran.us.r-project.org")
+install.packages("cowplot", repos = "http://cran.us.r-project.org")
+install.packages("ggrepel", repos = "http://cran.us.r-project.org")
+install.packages("htmlwidgets", repos = "http://cran.us.r-project.org")
+install.packages("plotly", repos = "http://cran.us.r-project.org")
+```
+
+## Loading the Data
+
+We need to load the required covid data. 
+```{r}
+
+library(dplyr)
+
+data <- read.csv("https://covid.ourworldindata.org/data/owid-covid-data.csv", na.strings = "",header=T)
+```
+
+## Selecting a subset of data
+
+As outlined in the guidelines, it's not necessary to conduct p-hacking on the entire dataset. Therefore, we opted to focus on a specific country for our analysis. In this example, we examine new COVID-19 cases in the United States across all available dates. To analyze data from a different country, one can simply modify the location parameter.
+
+```{r}
+data_country <- data[which(data$location=="United States"),] # One can modify the location parameter if they want to look into another country
+
+data_newcases <- data_country %>% select("new_cases")
+
+new_cases <- data_newcases$new_cases
+
+vl <- length(new_cases)
+
+print(paste("The length of the data selected is:", vl))
+```
+
+
+## Let's hack P Value
+
+We opt to create a custom variable by populating the time series with random values. We employ a 'while' loop to continuously regenerate these values until the p-value meets the significance threshold. 
+```{r}
+set.seed(123)
+
+y <- new_cases 
+
+p_value <- 1
+
+while (p_value >= 0.05) {
+
+  x <- cumsum(rnorm(vl))
+
+  model <- lm(y ~ x)
+
+  model_summary <- summary(model)
+
+  p_value <- model_summary$coefficients[2, 4]
+
+  print(paste("P is:", p_value))
+}
+
+# x should be a variable and y has a "significant" relationship with x
+print("Done")
+print(paste("The final P is:", p_value))
+print(summary(model))
+```
+## Plotting 
+
+```{r pressure}
+library(ggplot2)
+
+data_to_plot <- data.frame("Ours" = x, "Case" = y)
+
+ggplot(data_to_plot, aes(x = Ours, y = Case)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  scale_y_continuous(breaks = seq(min(data_to_plot$Case, na.rm = TRUE), max(data_to_plot$Case, na.rm = TRUE), by = 50000)) +
+  ggtitle(paste("Significant Relationship between variable and New Cases, p =", p_value)) +
+  xlab("Our Custom Variable") +
+  ylab("New Cases")
+```
+
+
